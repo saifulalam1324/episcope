@@ -1,0 +1,253 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#102a43">
+
+  <title>EpiScope | Disease Surveillance Dashboard</title>
+
+  <link rel="stylesheet" href="/static/styles.css">
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="/static/app.js" defer></script>
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div>
+        <p class="eyebrow">PUBLIC HEALTH ANALYTICS</p>
+        <h1>EpiScope</h1>
+        <p class="subtitle">Disease surveillance and resource planning</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- FILTERS -->
+    <section class="panel filters">
+      <div class="filter-field">
+        <label for="districtFilter">Select district</label>
+        <select id="districtFilter">
+          <option value="ALL">All districts</option>
+        </select>
+      </div>
+
+      <div class="filter-field">
+        <label for="diseaseFilter">Select disease</label>
+        <select id="diseaseFilter">
+          <option value="ALL">All diseases</option>
+        </select>
+      </div>
+
+      <button id="resetFilters" type="button">
+        Reset filters
+      </button>
+
+      <p id="lastUpdated" class="muted">Loading dashboard data...</p>
+    </section>
+
+    <!-- SUMMARY CARDS -->
+    <section class="kpi-grid">
+      <article class="panel kpi">
+        <p>Total reported cases</p>
+        <strong id="totalCases">—</strong>
+        <span>All available Gold records</span>
+      </article>
+
+      <article class="panel kpi">
+        <p>Districts represented</p>
+        <strong id="districtCount">—</strong>
+        <span>Generated district IDs</span>
+      </article>
+
+      <article class="panel kpi">
+        <p>Alert weeks</p>
+        <strong id="alertCount">—</strong>
+        <span>Existing detector output</span>
+      </article>
+
+      <article class="panel kpi">
+        <p>Estimated beds</p>
+        <strong id="bedCount">—</strong>
+        <span>Illustrative resource estimate</span>
+      </article>
+    </section>
+
+    <!-- WEEKLY TREND AND OVERALL DISEASE TOTALS -->
+    <section class="two-column">
+      <article class="panel">
+        <div class="section-heading">
+          <div>
+            <h2>Weekly case trend</h2>
+            <p>Changes in reported cases over time</p>
+          </div>
+        </div>
+
+        <div id="trendChart" class="chart"></div>
+      </article>
+
+      <article class="panel">
+        <div class="section-heading">
+          <div>
+            <h2>Cases by disease</h2>
+          </div>
+        </div>
+
+        <div id="districtDiseaseChart" class="chart"></div>
+      </article>
+    </section>
+
+    <!-- SELECTED DISTRICT DISEASE COUNTS -->
+    <section class="panel">
+      <div class="section-heading">
+        <div>
+          <h2>Disease counts by district</h2>
+          <p id="selectedDistrictTitle">
+            Select a district to see its disease counts
+          </p>
+        </div>
+
+        <span class="section-tag">District breakdown</span>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Disease</th>
+              <th>Reported cases</th>
+            </tr>
+          </thead>
+
+          <tbody id="districtDiseaseTable">
+            <tr>
+              <td colspan="2">Loading disease counts...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- BANGLADESH MAP -->
+    <section class="panel">
+      <div class="section-heading">
+        <div>
+          <h2>Bangladesh district map</h2>
+          <p>Click a district to select it and explore its disease counts</p>
+        </div>
+
+        <span class="section-tag">64 district shapes expected</span>
+      </div>
+
+      <div class="map-toolbar">
+        <div id="mapLegend" class="map-legend">
+          <span>Fewer cases</span>
+          <span class="legend-gradient"></span>
+          <span>More cases</span>
+        </div>
+
+        <button id="clearMapSelection" class="secondary-button" type="button">
+          Clear map selection
+        </button>
+      </div>
+
+      <div id="districtMap" class="map-container">
+        <p class="muted">Loading district boundaries...</p>
+      </div>
+
+      <p id="mapMessage" class="muted map-message">
+        Map colors represent synthetic case totals, not verified real-world
+        district statistics.
+      </p>
+    </section>
+
+    <!-- ALERTS AND RESOURCES -->
+    <section class="two-column">
+      <article class="panel">
+        <div class="section-heading">
+          <div>
+            <h2>Recent detector alerts</h2>
+            <p>Latest available alert weeks</p>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Week</th>
+                <th>District ID</th>
+                <th>Disease</th>
+                <th>Cases</th>
+              </tr>
+            </thead>
+
+            <tbody id="alertsTable">
+              <tr>
+                <td colspan="4">Loading alerts...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="section-heading">
+          <div>
+            <h2>Resource planning</h2>
+            <p>Estimated demand and bed allocation</p>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>District ID</th>
+                <th>Beds needed</th>
+                <th>Allocated</th>
+                <th>Unmet</th>
+              </tr>
+            </thead>
+
+            <tbody id="resourcesTable">
+              <tr>
+                <td colspan="4">Loading resource data...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <!-- EVALUATION -->
+    <section class="panel">
+      <div class="section-heading">
+        <div>
+          <h2>Outbreak evaluation</h2>
+          <p>Existing detector results compared with generated reference events</p>
+        </div>
+      </div>
+
+      <div id="evaluationSummary" class="evaluation-summary">
+        Loading evaluation...
+      </div>
+
+      <p class="muted evaluation-note">
+        These metrics depend on the existing evaluation output. A detected
+        event must match the reference event's district, disease, and time
+        window. The current project evaluation reports zero detected events.
+      </p>
+    </section>
+
+    <footer>
+      EpiScope · Educational project · Synthetic data · Not for clinical use
+    </footer>
+  </main>
+
+  <div id="tooltip" class="tooltip" role="status"></div>
+</body>
+</html>

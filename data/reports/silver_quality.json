@@ -1,0 +1,21 @@
+{
+  "input_rows": 25000,
+  "duplicate_rows_quarantined": 470,
+  "invalid_unique_rows_quarantined": 389,
+  "valid_rows": 24141,
+  "quarantined_rows": 859,
+  "rules": [
+    "missing_encounter_id",
+    "missing_patient_id",
+    "missing_district_id",
+    "invalid_date",
+    "report_before_onset",
+    "invalid_age",
+    "orphan_facility",
+    "invalid_lab_flag",
+    "invalid_admission_flag",
+    "invalid_sex",
+    "missing_icd10",
+    "duplicate_encounter_id"
+  ]
+}
