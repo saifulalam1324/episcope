@@ -1,4 +1,3 @@
-
 const API = "/api";
 
 const districtFilter = document.getElementById("districtFilter");
@@ -23,8 +22,7 @@ async function getJSON(path) {
     try {
       const error = await response.json();
       message = error.detail || message;
-    } catch (_) {
-    }
+    } catch (_) {}
 
     throw new Error(message);
   }
@@ -61,25 +59,29 @@ function showEmpty(containerId, message) {
 }
 
 function escapeHTML(value) {
-  return String(value ?? "").replace(/[&<>"']/g, (char) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;"
-  })[char]);
+  return String(value ?? "").replace(
+    /[&<>"']/g,
+    (char) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[char],
+  );
 }
 
 function showTooltip(event, html) {
   const tooltipWidth = 280;
   const left = Math.max(
     8,
-    Math.min(event.clientX + 12, window.innerWidth - tooltipWidth)
+    Math.min(event.clientX + 12, window.innerWidth - tooltipWidth),
   );
 
   const top = Math.max(
     8,
-    Math.min(event.clientY + 12, window.innerHeight - 110)
+    Math.min(event.clientY + 12, window.innerHeight - 110),
   );
 
   tooltip
@@ -119,11 +121,7 @@ function setOptions(select, rows, valueKey, labelKey, firstLabel) {
     select.appendChild(option);
   });
 
-  if (
-    [...select.options].some(
-      (option) => option.value === previousValue
-    )
-  ) {
+  if ([...select.options].some((option) => option.value === previousValue)) {
     select.value = previousValue;
   }
 }
@@ -131,7 +129,7 @@ function setOptions(select, rows, valueKey, labelKey, firstLabel) {
 async function loadFilters() {
   const [districts, summary] = await Promise.all([
     getJSON("/districts"),
-    getJSON("/summary")
+    getJSON("/summary"),
   ]);
 
   districtNames = {};
@@ -141,44 +139,42 @@ async function loadFilters() {
   });
 
   const sortedDistricts = [...districts].sort((a, b) =>
-    String(a.district_id).localeCompare(String(b.district_id))
+    String(a.district_id).localeCompare(String(b.district_id)),
   );
 
   setOptions(
     districtFilter,
     sortedDistricts,
     "district_id",
-    "district_id",
-    "All districts"
+    "district_name",
+    "All districts",
   );
 
   const diseases = [...(summary.disease_totals || [])].sort((a, b) =>
-    String(a.disease).localeCompare(String(b.disease))
+    String(a.disease).localeCompare(String(b.disease)),
   );
 
-  setOptions(
-    diseaseFilter,
-    diseases,
-    "disease",
-    "disease",
-    "All diseases"
-  );
+  setOptions(diseaseFilter, diseases, "disease", "disease", "All diseases");
 }
 
 async function loadSummary() {
   const data = await getJSON("/summary");
 
-  document.getElementById("totalCases").textContent =
-    numberFormat.format(data.total_cases ?? 0);
+  document.getElementById("totalCases").textContent = numberFormat.format(
+    data.total_cases ?? 0,
+  );
 
-  document.getElementById("districtCount").textContent =
-    numberFormat.format(data.districts ?? 0);
+  document.getElementById("districtCount").textContent = numberFormat.format(
+    data.districts ?? 0,
+  );
 
-  document.getElementById("alertCount").textContent =
-    numberFormat.format(data.alert_weeks ?? 0);
+  document.getElementById("alertCount").textContent = numberFormat.format(
+    data.alert_weeks ?? 0,
+  );
 
-  document.getElementById("bedCount").textContent =
-    numberFormat.format(data.estimated_beds ?? 0);
+  document.getElementById("bedCount").textContent = numberFormat.format(
+    data.estimated_beds ?? 0,
+  );
 
   document.getElementById("lastUpdated").textContent =
     `Data range: ${data.date_min || "—"} to ${data.date_max || "—"}`;
@@ -200,7 +196,7 @@ function renderLineChart(rows) {
   const data = rows
     .map((row) => ({
       date: new Date(`${row.week_start}T00:00:00`),
-      cases: Number(row.cases) || 0
+      cases: Number(row.cases) || 0,
     }))
     .filter((row) => !Number.isNaN(+row.date))
     .sort((a, b) => a.date - b.date);
@@ -214,7 +210,8 @@ function renderLineChart(rows) {
   const height = 280;
   const margin = { top: 16, right: 20, bottom: 42, left: 48 };
 
-  const svg = container.append("svg")
+  const svg = container
+    .append("svg")
     .attr("viewBox", `0 0 ${width} ${height}`)
     .attr("role", "img")
     .attr("aria-label", "Weekly reported case trend");
@@ -224,63 +221,72 @@ function renderLineChart(rows) {
   if (+dateDomain[0] === +dateDomain[1]) {
     dateDomain = [
       new Date(+dateDomain[0] - 7 * 86400000),
-      new Date(+dateDomain[1] + 7 * 86400000)
+      new Date(+dateDomain[1] + 7 * 86400000),
     ];
   }
 
-  const x = d3.scaleTime()
+  const x = d3
+    .scaleTime()
     .domain(dateDomain)
     .range([margin.left, width - margin.right]);
 
   const maxCases = d3.max(data, (d) => d.cases) || 1;
 
-  const y = d3.scaleLinear()
+  const y = d3
+    .scaleLinear()
     .domain([0, maxCases * 1.1])
     .nice()
     .range([height - margin.bottom, margin.top]);
 
-  svg.append("g")
+  svg
+    .append("g")
     .attr("class", "grid")
     .attr("transform", `translate(${margin.left},0)`)
     .call(
-      d3.axisLeft(y)
+      d3
+        .axisLeft(y)
         .ticks(5)
         .tickSize(-(width - margin.left - margin.right))
-        .tickFormat("")
+        .tickFormat(""),
     );
 
-  svg.append("g")
+  svg
+    .append("g")
     .attr("class", "axis")
     .attr("transform", `translate(0,${height - margin.bottom})`)
     .call(
-      d3.axisBottom(x)
+      d3
+        .axisBottom(x)
         .ticks(Math.max(2, Math.floor(width / 100)))
-        .tickFormat(d3.timeFormat("%Y-%m"))
+        .tickFormat(d3.timeFormat("%Y-%m")),
     );
 
-  svg.append("g")
+  svg
+    .append("g")
     .attr("class", "axis")
     .attr("transform", `translate(${margin.left},0)`)
     .call(d3.axisLeft(y).ticks(5));
 
-  const line = d3.line()
+  const line = d3
+    .line()
     .x((d) => x(d.date))
     .y((d) => y(d.cases))
     .curve(d3.curveMonotoneX);
 
-  svg.append("path")
+  svg
+    .append("path")
     .datum(data)
     .attr("fill", "none")
     .attr("stroke", "#178477")
     .attr("stroke-width", 2.5)
     .attr("d", line);
 
-  const points = data.filter((_, index) =>
-    data.length < 35 ||
-    index % Math.ceil(data.length / 30) === 0
+  const points = data.filter(
+    (_, index) => data.length < 35 || index % Math.ceil(data.length / 30) === 0,
   );
 
-  svg.selectAll(".trend-point")
+  svg
+    .selectAll(".trend-point")
     .data(points)
     .join("circle")
     .attr("class", "trend-point")
@@ -292,7 +298,7 @@ function renderLineChart(rows) {
       showTooltip(
         event,
         `<strong>${d3.timeFormat("%Y-%m-%d")(d.date)}</strong><br>` +
-        `Cases: ${numberFormat.format(d.cases)}`
+          `Cases: ${numberFormat.format(d.cases)}`,
       );
     })
     .on("mouseleave", hideTooltip);
@@ -312,7 +318,7 @@ function renderDiseaseBarChart(containerId, rows) {
   const data = rows
     .map((row) => ({
       disease: String(row.disease ?? "Unknown"),
-      cases: Number(row.cases) || 0
+      cases: Number(row.cases) || 0,
     }))
     .sort((a, b) => a.cases - b.cases);
 
@@ -326,37 +332,43 @@ function renderDiseaseBarChart(containerId, rows) {
   const margin = { top: 12, right: 45, bottom: 30, left: 100 };
   const height = Math.max(
     220,
-    data.length * rowHeight + margin.top + margin.bottom
+    data.length * rowHeight + margin.top + margin.bottom,
   );
 
-  const svg = container.append("svg")
+  const svg = container
+    .append("svg")
     .attr("viewBox", `0 0 ${width} ${height}`)
     .attr("role", "img")
     .attr("aria-label", "Disease case counts");
 
   const maxCases = d3.max(data, (d) => d.cases) || 1;
 
-  const x = d3.scaleLinear()
+  const x = d3
+    .scaleLinear()
     .domain([0, maxCases])
     .nice()
     .range([margin.left, width - margin.right]);
 
-  const y = d3.scaleBand()
+  const y = d3
+    .scaleBand()
     .domain(data.map((d) => d.disease))
     .range([margin.top, height - margin.bottom])
     .padding(0.25);
 
-  svg.append("g")
+  svg
+    .append("g")
     .attr("class", "axis")
     .attr("transform", `translate(0,${height - margin.bottom})`)
     .call(d3.axisBottom(x).ticks(4));
 
-  svg.append("g")
+  svg
+    .append("g")
     .attr("class", "axis")
     .attr("transform", `translate(${margin.left},0)`)
     .call(d3.axisLeft(y).tickSize(0));
 
-  svg.selectAll(".disease-bar")
+  svg
+    .selectAll(".disease-bar")
     .data(data)
     .join("rect")
     .attr("class", "disease-bar")
@@ -370,12 +382,13 @@ function renderDiseaseBarChart(containerId, rows) {
       showTooltip(
         event,
         `<strong>${escapeHTML(d.disease)}</strong><br>` +
-        `Cases: ${numberFormat.format(d.cases)}`
+          `Cases: ${numberFormat.format(d.cases)}`,
       );
     })
     .on("mouseleave", hideTooltip);
 
-  svg.selectAll(".bar-label")
+  svg
+    .selectAll(".bar-label")
     .data(data)
     .join("text")
     .attr("class", "bar-label")
@@ -395,12 +408,13 @@ async function loadDistrictDiseaseCounts() {
   const title = document.getElementById("selectedDistrictTitle");
   const table = document.getElementById("districtDiseaseTable");
 
-  title.textContent = district === "ALL"
-    ? "Disease totals across all districts"
-    : `Disease counts for ${district}`;
+  title.textContent =
+    district === "ALL"
+      ? "Disease totals across all districts"
+      : `Disease counts for ${district}`;
 
   const rows = await getJSON(
-    `/disease-counts?district=${encodeURIComponent(district)}`
+    `/disease-counts?district=${encodeURIComponent(district)}`,
   );
 
   table.replaceChildren();
@@ -425,9 +439,7 @@ async function loadDistrictDiseaseCounts() {
     diseaseCell.textContent = row.disease ?? "Unknown";
 
     const casesCell = document.createElement("td");
-    casesCell.textContent = numberFormat.format(
-      Number(row.cases) || 0
-    );
+    casesCell.textContent = numberFormat.format(Number(row.cases) || 0);
 
     tr.append(diseaseCell, casesCell);
     table.appendChild(tr);
@@ -438,8 +450,6 @@ async function loadDistrictDiseaseCounts() {
 
 /* BANGLADESH DISTRICT MAP */
 
-
-
 function renderMap(geojson) {
   const container = d3.select("#districtMap");
   container.selectAll("*").remove();
@@ -448,9 +458,10 @@ function renderMap(geojson) {
   const mapData = JSON.parse(JSON.stringify(geojson));
 
   // Keep valid district polygon geometries.
-  mapData.features = (mapData.features || []).filter(feature =>
-    feature.geometry &&
-    ["Polygon", "MultiPolygon"].includes(feature.geometry.type)
+  mapData.features = (mapData.features || []).filter(
+    (feature) =>
+      feature.geometry &&
+      ["Polygon", "MultiPolygon"].includes(feature.geometry.type),
   );
 
   if (!mapData.features.length) {
@@ -460,12 +471,12 @@ function renderMap(geojson) {
 
   // D3 expects exterior rings clockwise and interior rings counterclockwise.
   // Some GeoJSON sources use the opposite orientation.
-  mapData.features.forEach(feature => {
+  mapData.features.forEach((feature) => {
     if (d3.geoArea(feature) > 2 * Math.PI) {
       const geometry = feature.geometry;
 
       function reverseRings(polygonCoordinates) {
-        polygonCoordinates.forEach(ring => ring.reverse());
+        polygonCoordinates.forEach((ring) => ring.reverse());
       }
 
       if (geometry.type === "Polygon") {
@@ -481,17 +492,20 @@ function renderMap(geojson) {
   const width = Math.max(container.node().clientWidth, 320);
   const height = Math.max(400, Math.min(650, width * 0.85));
 
-  const svg = container.append("svg")
+  const svg = container
+    .append("svg")
     .attr("viewBox", `0 0 ${width} ${height}`)
     .attr("role", "img")
     .attr("aria-label", "Bangladesh district boundaries");
 
   // Let D3 calculate the projection scale and position from the full country.
-  const projection = d3.geoMercator()
-    .fitExtent(
-      [[20, 20], [width - 20, height - 20]],
-      mapData
-    );
+  const projection = d3.geoMercator().fitExtent(
+    [
+      [20, 20],
+      [width - 20, height - 20],
+    ],
+    mapData,
+  );
 
   const path = d3.geoPath(projection);
 
@@ -500,22 +514,25 @@ function renderMap(geojson) {
   mapGeoJSON = mapData;
 
   const maxCases =
-    d3.max(mapFeatures, feature =>
-      Number(feature.properties?.total_cases) || 0
+    d3.max(
+      mapFeatures,
+      (feature) => Number(feature.properties?.total_cases) || 0,
     ) || 1;
 
-  mapColorScale = d3.scaleSequential()
+  mapColorScale = d3
+    .scaleSequential()
     .domain([0, maxCases])
     .interpolator(d3.interpolateOrRd);
 
   // Draw the district boundaries.
-  svg.selectAll("path.district")
+  svg
+    .selectAll("path.district")
     .data(mapFeatures)
     .join("path")
     .attr("class", "district")
     .attr("d", path)
-    .attr("fill", feature =>
-      mapColorScale(Number(feature.properties?.total_cases) || 0)
+    .attr("fill", (feature) =>
+      mapColorScale(Number(feature.properties?.total_cases) || 0),
     )
     .on("mousemove", (event, feature) => {
       const props = feature.properties || {};
@@ -523,10 +540,10 @@ function renderMap(geojson) {
       showTooltip(
         event,
         `<strong>${escapeHTML(props.district_id || "Unmapped")}</strong><br>` +
-        `${escapeHTML(props.shapeName || "District")}<br>` +
-        `Synthetic cases: ${numberFormat.format(
-          Number(props.total_cases) || 0
-        )}`
+          `${escapeHTML(props.shapeName || "District")}<br>` +
+          `Synthetic cases: ${numberFormat.format(
+            Number(props.total_cases) || 0,
+          )}`,
       );
     })
     .on("mouseleave", hideTooltip)
@@ -535,7 +552,7 @@ function renderMap(geojson) {
 
       if (
         id &&
-        [...districtFilter.options].some(option => option.value === id)
+        [...districtFilter.options].some((option) => option.value === id)
       ) {
         districtFilter.value = id;
         refreshFilteredViews();
@@ -543,11 +560,14 @@ function renderMap(geojson) {
     });
 
   // Label each district with its demo ID.
-  svg.selectAll("text.district-label")
+
+  /* Label each district with its name instead of its demo ID. */
+  svg
+    .selectAll("text.district-label")
     .data(mapFeatures)
     .join("text")
     .attr("class", "district-label")
-    .attr("transform", feature => {
+    .attr("transform", (feature) => {
       const center = path.centroid(feature);
 
       if (!center.every(Number.isFinite)) {
@@ -558,7 +578,12 @@ function renderMap(geojson) {
     })
     .attr("text-anchor", "middle")
     .attr("dominant-baseline", "central")
-    .text(feature => feature.properties?.district_id || "")
+    .text(
+      (feature) =>
+        feature.properties?.shapeName ||
+        districtNames[feature.properties?.district_id] ||
+        "",
+    )
     .style("pointer-events", "none");
 
   updateMapSelection();
@@ -573,13 +598,11 @@ function updateMapSelection() {
 
   const selectedDistrict = districtFilter.value;
 
-  mapSvg.selectAll(".district")
-    .classed("selected", (feature) => {
-      const id = feature.properties?.district_id;
+  mapSvg.selectAll(".district").classed("selected", (feature) => {
+    const id = feature.properties?.district_id;
 
-      return selectedDistrict !== "ALL" &&
-        id === selectedDistrict;
-    });
+    return selectedDistrict !== "ALL" && id === selectedDistrict;
+  });
 }
 
 async function loadMap() {
@@ -614,7 +637,7 @@ async function loadAlerts() {
       row.week_start || "—",
       row.district_id || "—",
       row.disease || "—",
-      numberFormat.format(Number(row.cases) || 0)
+      numberFormat.format(Number(row.cases) || 0),
     ];
 
     values.forEach((value) => {
@@ -648,9 +671,8 @@ async function loadResources() {
     return;
   }
 
-  rows.sort((a, b) =>
-    (Number(b.beds_needed) || 0) -
-    (Number(a.beds_needed) || 0)
+  rows.sort(
+    (a, b) => (Number(b.beds_needed) || 0) - (Number(a.beds_needed) || 0),
   );
 
   rows.slice(0, 30).forEach((row) => {
@@ -660,7 +682,7 @@ async function loadResources() {
       row.district_id || "—",
       numberFormat.format(Number(row.beds_needed) || 0),
       numberFormat.format(Number(row.allocated_beds) || 0),
-      numberFormat.format(Number(row.unmet_beds) || 0)
+      numberFormat.format(Number(row.unmet_beds) || 0),
     ];
 
     values.forEach((value) => {
@@ -688,15 +710,11 @@ async function loadEvaluation() {
         [
           "Recall",
           data.event_count
-            ? `${(
-                (data.detected_count / data.event_count) * 100
-              ).toFixed(1)}%`
-            : "N/A"
-        ]
+            ? `${((data.detected_count / data.event_count) * 100).toFixed(1)}%`
+            : "N/A",
+        ],
       ]
-    : [
-        ["Evaluation", "Not available"]
-      ];
+    : [["Evaluation", "Not available"]];
 
   metrics.forEach(([label, value]) => {
     const chip = document.createElement("div");
@@ -720,7 +738,7 @@ async function refreshFilteredViews() {
 
   const results = await Promise.allSettled([
     loadTrend(),
-    loadDistrictDiseaseCounts()
+    loadDistrictDiseaseCounts(),
   ]);
 
   if (results[0].status === "rejected") {
@@ -752,7 +770,7 @@ async function init() {
       ["districtMap", loadMap],
       ["alertsTable", loadAlerts],
       ["resourcesTable", loadResources],
-      ["evaluationSummary", loadEvaluation]
+      ["evaluationSummary", loadEvaluation],
     ];
 
     await Promise.all(
@@ -763,15 +781,12 @@ async function init() {
           console.error(`Failed to load ${containerId}:`, error);
           showError(containerId, error.message);
         }
-      })
+      }),
     );
   } catch (error) {
     console.error("Dashboard initialization failed:", error);
 
-    showError(
-      "trendChart",
-      `Could not start the dashboard: ${error.message}`
-    );
+    showError("trendChart", `Could not start the dashboard: ${error.message}`);
   }
 }
 
