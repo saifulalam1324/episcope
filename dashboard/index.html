@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -96,72 +95,70 @@
           </div>
         </div>
 
-        <div id="districtDiseaseChart" class="chart"></div>
+        <div id="diseaseChart" class="chart"></div>
       </article>
     </section>
 
-    <!-- SELECTED DISTRICT DISEASE COUNTS -->
-    <section class="panel">
-      <div class="section-heading">
-        <div>
-          <h2>Disease counts by district</h2>
-          <p id="selectedDistrictTitle">
-            Select a district to see its disease counts
-          </p>
+    <!-- MAP WITH A NEW MULTI-DISEASE TREND AND THE EXISTING DISTRICT TABLE -->
+    <section class="map-dashboard-layout" aria-label="District map, multi-disease trend and district counts">
+      <article class="panel map-panel">
+        <div class="section-heading">
+          <div>
+            <h2>Bangladesh district map</h2>
+            <p>Click a district to select it and explore its disease counts</p>
+          </div>
+          <span class="section-tag">64 district shapes expected</span>
         </div>
 
-        <span class="section-tag">District breakdown</span>
-      </div>
-
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Disease</th>
-              <th>Reported cases</th>
-            </tr>
-          </thead>
-
-          <tbody id="districtDiseaseTable">
-            <tr>
-              <td colspan="2">Loading disease counts...</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- BANGLADESH MAP -->
-    <section class="panel">
-      <div class="section-heading">
-        <div>
-          <h2>Bangladesh district map</h2>
-          <p>Click a district to select it and explore its disease counts</p>
+        <div class="map-toolbar">
+          <div id="mapLegend" class="map-legend">
+            <span>Fewer cases</span>
+            <span class="legend-gradient"></span>
+            <span>More cases</span>
+          </div>
+          <button id="clearMapSelection" class="secondary-button" type="button">Clear map selection</button>
         </div>
 
-        <span class="section-tag">64 district shapes expected</span>
-      </div>
-
-      <div class="map-toolbar">
-        <div id="mapLegend" class="map-legend">
-          <span>Fewer cases</span>
-          <span class="legend-gradient"></span>
-          <span>More cases</span>
+        <div id="districtMap" class="map-container">
+          <p class="muted">Loading district boundaries...</p>
         </div>
+        <p id="mapMessage" class="muted map-message">
+          Map colors represent synthetic case totals, not verified real-world district statistics.
+        </p>
+      </article>
 
-        <button id="clearMapSelection" class="secondary-button" type="button">
-          Clear map selection
-        </button>
+      <div class="map-side-charts">
+        <article class="panel compact-chart-panel multi-trend-panel">
+          <div class="section-heading">
+            <div>
+              <h2>Case trend by disease</h2>
+              <p>Weekly cases for all diseases in different colors</p>
+            </div>
+            <span class="section-tag">All diseases</span>
+          </div>
+          <div id="mapTrendLegend" class="trend-legend" aria-label="Disease line colors"></div>
+          <div id="mapTrendChart" class="chart compact-chart"></div>
+          <p class="muted synthetic-note">Each colored line represents one disease. Data is synthetic.</p>
+        </article>
+
+        <article class="panel compact-chart-panel disease-table-panel">
+          <div class="section-heading">
+            <div>
+              <h2>Disease counts by district</h2>
+              <p id="selectedDistrictTitle">Select a district to see its disease counts</p>
+            </div>
+            <span class="section-tag">District breakdown</span>
+          </div>
+          <div class="table-wrap compact-table-wrap">
+            <table>
+              <thead><tr><th>Disease</th><th>Reported cases</th></tr></thead>
+              <tbody id="districtDiseaseTable">
+                <tr><td colspan="2">Loading disease counts...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
       </div>
-
-      <div id="districtMap" class="map-container">
-        <p class="muted">Loading district boundaries...</p>
-      </div>
-
-      <p id="mapMessage" class="muted map-message">
-        Map colors represent synthetic case totals, not verified real-world
-        district statistics.
-      </p>
     </section>
 
     <!-- ALERTS AND RESOURCES -->

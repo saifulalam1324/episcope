@@ -1,3 +1,9 @@
+/* =========================================================
+   EpiScope Dashboard — Complete JavaScript
+   Synthetic epidemiological surveillance demo for Bangladesh
+   All displayed epidemiological data must be treated as synthetic.
+   ========================================================= */
+
 const API = "/api";
 
 const districtFilter = document.getElementById("districtFilter");
@@ -6,12 +12,28 @@ const tooltip = d3.select("#tooltip");
 
 const numberFormat = new Intl.NumberFormat("en-US");
 
+const DISEASE_COLORS = [
+  "#176b64",
+  "#e58a32",
+  "#7970c9",
+  "#d34d5c",
+  "#2878b5",
+  "#a16a35",
+  "#329b78",
+  "#c04f9b",
+  "#758b27",
+  "#526579",
+];
+
 let districtNames = {};
 let mapGeoJSON = null;
-let mapColorScale = null;
 let mapSvg = null;
-let mapPath = null;
 let mapFeatures = [];
+let refreshVersion = 0;
+
+/* =========================================================
+   API AND GENERAL HELPERS
+   ========================================================= */
 
 async function getJSON(path) {
   const response = await fetch(`${API}${path}`);
@@ -22,7 +44,9 @@ async function getJSON(path) {
     try {
       const error = await response.json();
       message = error.detail || message;
-    } catch (_) {}
+    } catch (_) {
+      // Response did not contain JSON.
+    }
 
     throw new Error(message);
   }
@@ -32,7 +56,6 @@ async function getJSON(path) {
 
 function showError(containerId, message) {
   const container = document.getElementById(containerId);
-
   if (!container) return;
 
   container.replaceChildren();
@@ -46,7 +69,6 @@ function showError(containerId, message) {
 
 function showEmpty(containerId, message) {
   const container = document.getElementById(containerId);
-
   if (!container) return;
 
   container.replaceChildren();
@@ -59,29 +81,26 @@ function showEmpty(containerId, message) {
 }
 
 function escapeHTML(value) {
-  return String(value ?? "").replace(
-    /[&<>"']/g,
-    (char) =>
-      ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;",
-      })[char],
-  );
+  return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  })[char]);
 }
 
 function showTooltip(event, html) {
   const tooltipWidth = 280;
+
   const left = Math.max(
     8,
-    Math.min(event.clientX + 12, window.innerWidth - tooltipWidth),
+    Math.min(event.clientX + 12, window.innerWidth - tooltipWidth)
   );
 
   const top = Math.max(
     8,
-    Math.min(event.clientY + 12, window.innerHeight - 110),
+    Math.min(event.clientY + 12, window.innerHeight - 110)
   );
 
   tooltip
@@ -96,28 +115,27 @@ function hideTooltip() {
 }
 
 function selectedQuery() {
-  const district = encodeURIComponent(districtFilter.value);
-  const disease = encodeURIComponent(diseaseFilter.value);
-
-  return `?district=${district}&disease=${disease}`;
+  return (
+    `?district=${encodeURIComponent(districtFilter.value)}` +
+    `&disease=${encodeURIComponent(diseaseFilter.value)}`
+  );
 }
 
 function setOptions(select, rows, valueKey, labelKey, firstLabel) {
-  const previousValue = select.value;
+  if (!select) return;
 
+  const previousValue = select.value;
   select.replaceChildren();
 
   const allOption = document.createElement("option");
   allOption.value = "ALL";
   allOption.textContent = firstLabel;
-
   select.appendChild(allOption);
 
   rows.forEach((row) => {
     const option = document.createElement("option");
     option.value = String(row[valueKey]);
     option.textContent = String(row[labelKey]);
-
     select.appendChild(option);
   });
 
@@ -125,6 +143,10 @@ function setOptions(select, rows, valueKey, labelKey, firstLabel) {
     select.value = previousValue;
   }
 }
+
+/* =========================================================
+   FILTERS
+   ========================================================= */
 
 async function loadFilters() {
   const [districts, summary] = await Promise.all([
@@ -135,11 +157,11 @@ async function loadFilters() {
   districtNames = {};
 
   districts.forEach((row) => {
-    districtNames[row.district_id] = row.district_name;
+    districtNames[String(row.district_id)] = row.district_name;
   });
 
   const sortedDistricts = [...districts].sort((a, b) =>
-    String(a.district_id).localeCompare(String(b.district_id)),
+    String(a.district_name).localeCompare(String(b.district_name))
   );
 
   setOptions(
@@ -147,48 +169,66 @@ async function loadFilters() {
     sortedDistricts,
     "district_id",
     "district_name",
-    "All districts",
+    "All districts"
   );
 
   const diseases = [...(summary.disease_totals || [])].sort((a, b) =>
-    String(a.disease).localeCompare(String(b.disease)),
+    String(a.disease).localeCompare(String(b.disease))
   );
 
-  setOptions(diseaseFilter, diseases, "disease", "disease", "All diseases");
+  setOptions(
+    diseaseFilter,
+    diseases,
+    "disease",
+    "disease",
+    "All diseases"
+  );
 }
+
+/* =========================================================
+   SUMMARY CARDS
+   ========================================================= */
 
 async function loadSummary() {
   const data = await getJSON("/summary");
 
-  document.getElementById("totalCases").textContent = numberFormat.format(
-    data.total_cases ?? 0,
-  );
+  const totalCases = document.getElementById("totalCases");
+  const districtCount = document.getElementById("districtCount");
+  const alertCount = document.getElementById("alertCount");
+  const bedCount = document.getElementById("bedCount");
+  const lastUpdated = document.getElementById("lastUpdated");
 
-  document.getElementById("districtCount").textContent = numberFormat.format(
-    data.districts ?? 0,
-  );
+  if (totalCases) {
+    totalCases.textContent = numberFormat.format(data.total_cases ?? 0);
+  }
 
-  document.getElementById("alertCount").textContent = numberFormat.format(
-    data.alert_weeks ?? 0,
-  );
+  if (districtCount) {
+    districtCount.textContent = numberFormat.format(data.districts ?? 0);
+  }
 
-  document.getElementById("bedCount").textContent = numberFormat.format(
-    data.estimated_beds ?? 0,
-  );
+  if (alertCount) {
+    alertCount.textContent = numberFormat.format(data.alert_weeks ?? 0);
+  }
 
-  document.getElementById("lastUpdated").textContent =
-    `Data range: ${data.date_min || "—"} to ${data.date_max || "—"}`;
+  if (bedCount) {
+    bedCount.textContent = numberFormat.format(data.estimated_beds ?? 0);
+  }
 
-  renderDiseaseChart(data.disease_totals || []);
+  if (lastUpdated) {
+    lastUpdated.textContent =
+      `Data range: ${data.date_min || "—"} to ${data.date_max || "—"}`;
+  }
 }
 
-/* WEEKLY CASE TREND */
+/* =========================================================
+   ORIGINAL TOP WEEKLY CASE TREND
+   ========================================================= */
 
 function renderLineChart(rows) {
   const container = d3.select("#trendChart");
   container.selectAll("*").remove();
 
-  if (!rows.length) {
+  if (!rows || !rows.length) {
     showEmpty("trendChart", "No weekly case data found.");
     return;
   }
@@ -213,8 +253,9 @@ function renderLineChart(rows) {
   const svg = container
     .append("svg")
     .attr("viewBox", `0 0 ${width} ${height}`)
+    .attr("width", "100%")
     .attr("role", "img")
-    .attr("aria-label", "Weekly reported case trend");
+    .attr("aria-label", "Weekly synthetic case trend");
 
   let dateDomain = d3.extent(data, (d) => d.date);
 
@@ -247,7 +288,7 @@ function renderLineChart(rows) {
         .axisLeft(y)
         .ticks(5)
         .tickSize(-(width - margin.left - margin.right))
-        .tickFormat(""),
+        .tickFormat("")
     );
 
   svg
@@ -258,7 +299,7 @@ function renderLineChart(rows) {
       d3
         .axisBottom(x)
         .ticks(Math.max(2, Math.floor(width / 100)))
-        .tickFormat(d3.timeFormat("%Y-%m")),
+        .tickFormat(d3.timeFormat("%Y-%m"))
     );
 
   svg
@@ -282,7 +323,7 @@ function renderLineChart(rows) {
     .attr("d", line);
 
   const points = data.filter(
-    (_, index) => data.length < 35 || index % Math.ceil(data.length / 30) === 0,
+    (_, index) => data.length < 35 || index % Math.ceil(data.length / 30) === 0
   );
 
   svg
@@ -298,7 +339,7 @@ function renderLineChart(rows) {
       showTooltip(
         event,
         `<strong>${d3.timeFormat("%Y-%m-%d")(d.date)}</strong><br>` +
-          `Cases: ${numberFormat.format(d.cases)}`,
+        `Synthetic cases: ${numberFormat.format(d.cases)}`
       );
     })
     .on("mouseleave", hideTooltip);
@@ -309,13 +350,15 @@ async function loadTrend() {
   renderLineChart(rows);
 }
 
-/* REUSABLE HORIZONTAL DISEASE BAR CHART */
+/* =========================================================
+   ORIGINAL CASES-BY-DISEASE BAR CHART
+   ========================================================= */
 
 function renderDiseaseBarChart(containerId, rows) {
   const container = d3.select(`#${containerId}`);
   container.selectAll("*").remove();
 
-  const data = rows
+  const data = (rows || [])
     .map((row) => ({
       disease: String(row.disease ?? "Unknown"),
       cases: Number(row.cases) || 0,
@@ -332,14 +375,15 @@ function renderDiseaseBarChart(containerId, rows) {
   const margin = { top: 12, right: 45, bottom: 30, left: 100 };
   const height = Math.max(
     220,
-    data.length * rowHeight + margin.top + margin.bottom,
+    data.length * rowHeight + margin.top + margin.bottom
   );
 
   const svg = container
     .append("svg")
     .attr("viewBox", `0 0 ${width} ${height}`)
+    .attr("width", "100%")
     .attr("role", "img")
-    .attr("aria-label", "Disease case counts");
+    .attr("aria-label", "Synthetic case counts by disease");
 
   const maxCases = d3.max(data, (d) => d.cases) || 1;
 
@@ -382,7 +426,7 @@ function renderDiseaseBarChart(containerId, rows) {
       showTooltip(
         event,
         `<strong>${escapeHTML(d.disease)}</strong><br>` +
-          `Cases: ${numberFormat.format(d.cases)}`,
+        `Synthetic cases: ${numberFormat.format(d.cases)}`
       );
     })
     .on("mouseleave", hideTooltip);
@@ -401,29 +445,268 @@ function renderDiseaseChart(rows) {
   renderDiseaseBarChart("diseaseChart", rows);
 }
 
-/* SELECTED DISTRICT DISEASE COUNTS */
+async function loadDiseaseChartByDistrict() {
+  const chart = document.getElementById("diseaseChart");
+  if (!chart) return;
+
+  chart.innerHTML = "<p class='muted'>Loading disease cases...</p>";
+
+  const district = districtFilter.value;
+  const selectedDisease = diseaseFilter.value;
+
+  const rows = await getJSON(
+    `/disease-counts?district=${encodeURIComponent(district)}`
+  );
+
+  const filteredRows =
+    selectedDisease === "ALL"
+      ? rows
+      : rows.filter(
+          (row) =>
+            String(row.disease).toLowerCase() ===
+            String(selectedDisease).toLowerCase()
+        );
+
+  if (!filteredRows.length) {
+    showEmpty("diseaseChart", "No disease cases available for these filters.");
+    return;
+  }
+
+  renderDiseaseChart(filteredRows);
+}
+
+/* =========================================================
+   NEW MULTI-DISEASE TREND CHART
+   Uses the existing /weekly endpoint.
+   This chart is separate from the original top trend chart.
+   ========================================================= */
+
+async function loadMultiDiseaseTrend() {
+  const chartId = "mapTrendChart";
+  const legend = document.getElementById("mapTrendLegend");
+  const container = d3.select(`#${chartId}`);
+
+  if (!container.node()) return;
+
+  container.selectAll("*").remove();
+
+  if (legend) {
+    legend.replaceChildren();
+  }
+
+  try {
+    const district = districtFilter.value;
+
+    // Fetch the full disease list, not just the selected disease.
+    const summary = await getJSON("/summary");
+
+    const diseases = [...new Set(
+      (summary.disease_totals || [])
+        .map((row) => String(row.disease || "").trim())
+        .filter(Boolean)
+    )].sort((a, b) => a.localeCompare(b));
+
+    if (!diseases.length) {
+      showEmpty(chartId, "No disease data available.");
+      return;
+    }
+
+    // Ask the existing weekly endpoint for each disease separately.
+    const results = await Promise.all(
+      diseases.map(async (disease) => {
+        const params = new URLSearchParams({
+          district,
+          disease,
+        });
+
+        const rows = await getJSON(`/weekly?${params.toString()}`);
+
+        return {
+          disease,
+          values: (rows || [])
+            .map((row) => ({
+              date: new Date(`${row.week_start}T00:00:00`),
+              cases: Number(row.cases) || 0,
+            }))
+            .filter((row) => !Number.isNaN(+row.date))
+            .sort((a, b) => a.date - b.date),
+        };
+      })
+    );
+
+    const series = results.filter((item) => item.values.length > 0);
+
+    if (!series.length) {
+      showEmpty(chartId, "No weekly disease trends found.");
+      return;
+    }
+
+    const color = d3
+      .scaleOrdinal()
+      .domain(series.map((item) => item.disease))
+      .range(DISEASE_COLORS);
+
+    // Build the legend.
+    if (legend) {
+      series.forEach((item) => {
+        const legendItem = document.createElement("span");
+        legendItem.className = "trend-legend-item";
+
+        const swatch = document.createElement("span");
+        swatch.className = "trend-legend-swatch";
+        swatch.style.backgroundColor = color(item.disease);
+
+        const label = document.createElement("span");
+        label.textContent = item.disease;
+
+        legendItem.append(swatch, label);
+        legend.appendChild(legendItem);
+      });
+    }
+
+    const allValues = series.flatMap((item) => item.values);
+
+    let dateDomain = d3.extent(allValues, (d) => d.date);
+
+    if (+dateDomain[0] === +dateDomain[1]) {
+      dateDomain = [
+        new Date(+dateDomain[0] - 7 * 86400000),
+        new Date(+dateDomain[1] + 7 * 86400000),
+      ];
+    }
+
+    const width = Math.max(container.node().clientWidth, 280);
+    const height = 230;
+    const margin = { top: 12, right: 16, bottom: 38, left: 46 };
+
+    const svg = container
+      .append("svg")
+      .attr("viewBox", `0 0 ${width} ${height}`)
+      .attr("width", "100%")
+      .attr("role", "img")
+      .attr("aria-label", "Weekly synthetic case trends by disease");
+
+    const x = d3
+      .scaleTime()
+      .domain(dateDomain)
+      .range([margin.left, width - margin.right]);
+
+    const maxCases = d3.max(allValues, (d) => d.cases) || 1;
+
+    const y = d3
+      .scaleLinear()
+      .domain([0, maxCases * 1.1])
+      .nice()
+      .range([height - margin.bottom, margin.top]);
+
+    svg
+      .append("g")
+      .attr("class", "grid")
+      .attr("transform", `translate(${margin.left},0)`)
+      .call(
+        d3
+          .axisLeft(y)
+          .ticks(5)
+          .tickSize(-(width - margin.left - margin.right))
+          .tickFormat("")
+      );
+
+    svg
+      .append("g")
+      .attr("class", "axis")
+      .attr("transform", `translate(0,${height - margin.bottom})`)
+      .call(
+        d3
+          .axisBottom(x)
+          .ticks(Math.max(2, Math.floor(width / 100)))
+          .tickFormat(d3.timeFormat("%Y-%m"))
+      );
+
+    svg
+      .append("g")
+      .attr("class", "axis")
+      .attr("transform", `translate(${margin.left},0)`)
+      .call(d3.axisLeft(y).ticks(5));
+
+    const line = d3
+      .line()
+      .defined((d) => Number.isFinite(d.cases))
+      .x((d) => x(d.date))
+      .y((d) => y(d.cases))
+      .curve(d3.curveMonotoneX);
+
+    series.forEach((item) => {
+      const diseaseColor = color(item.disease);
+
+      svg
+        .append("path")
+        .datum(item.values)
+        .attr("fill", "none")
+        .attr("stroke", diseaseColor)
+        .attr("stroke-width", 2.2)
+        .attr("stroke-linejoin", "round")
+        .attr("stroke-linecap", "round")
+        .attr("d", line);
+
+      const points = item.values.filter(
+        (_, index) =>
+          item.values.length < 35 ||
+          index % Math.ceil(item.values.length / 25) === 0
+      );
+
+      svg
+        .selectAll(`.point-${series.indexOf(item)}`)
+        .data(points)
+        .join("circle")
+        .attr("class", `point-${series.indexOf(item)}`)
+        .attr("cx", (d) => x(d.date))
+        .attr("cy", (d) => y(d.cases))
+        .attr("r", 2.8)
+        .attr("fill", diseaseColor)
+        .on("mousemove", (event, d) => {
+          showTooltip(
+            event,
+            `<strong>${escapeHTML(item.disease)}</strong><br>` +
+            `${d3.timeFormat("%Y-%m-%d")(d.date)}<br>` +
+            `Synthetic cases: ${numberFormat.format(d.cases)}`
+          );
+        })
+        .on("mouseleave", hideTooltip);
+    });
+  } catch (error) {
+    console.error("Could not load multi-disease trend:", error);
+    showError(chartId, `Could not load disease trends: ${error.message}`);
+  }
+}
+
+/* =========================================================
+   DISTRICT DISEASE COUNTS TABLE
+   ========================================================= */
 
 async function loadDistrictDiseaseCounts() {
   const district = districtFilter.value;
   const title = document.getElementById("selectedDistrictTitle");
   const table = document.getElementById("districtDiseaseTable");
 
-  title.textContent =
-    district === "ALL"
-      ? "Disease totals across all districts"
-      : `Disease counts for ${district}`;
+  if (!table) return;
+
+  if (title) {
+    title.textContent =
+      district === "ALL"
+        ? "Disease totals across all districts"
+        : `Disease counts for ${districtNames[district] || district}`;
+  }
 
   const rows = await getJSON(
-    `/disease-counts?district=${encodeURIComponent(district)}`,
+    `/disease-counts?district=${encodeURIComponent(district)}`
   );
 
   table.replaceChildren();
 
   if (!rows.length) {
-    showEmpty("districtDiseaseChart", "No disease counts available.");
-
     const tr = document.createElement("tr");
     const td = document.createElement("td");
+
     td.colSpan = 2;
     td.textContent = "No disease counts available.";
 
@@ -444,24 +727,25 @@ async function loadDistrictDiseaseCounts() {
     tr.append(diseaseCell, casesCell);
     table.appendChild(tr);
   });
-
-  renderDiseaseBarChart("districtDiseaseChart", rows);
 }
 
-/* BANGLADESH DISTRICT MAP */
+/* =========================================================
+   BANGLADESH DISTRICT MAP
+   ========================================================= */
 
 function renderMap(geojson) {
   const container = d3.select("#districtMap");
+
+  if (!container.node()) return;
+
   container.selectAll("*").remove();
 
-  // Work on a copy so the original API response is not modified.
   const mapData = JSON.parse(JSON.stringify(geojson));
 
-  // Keep valid district polygon geometries.
   mapData.features = (mapData.features || []).filter(
     (feature) =>
       feature.geometry &&
-      ["Polygon", "MultiPolygon"].includes(feature.geometry.type),
+      ["Polygon", "MultiPolygon"].includes(feature.geometry.type)
   );
 
   if (!mapData.features.length) {
@@ -469,8 +753,6 @@ function renderMap(geojson) {
     return;
   }
 
-  // D3 expects exterior rings clockwise and interior rings counterclockwise.
-  // Some GeoJSON sources use the opposite orientation.
   mapData.features.forEach((feature) => {
     if (d3.geoArea(feature) > 2 * Math.PI) {
       const geometry = feature.geometry;
@@ -490,41 +772,39 @@ function renderMap(geojson) {
   mapFeatures = mapData.features;
 
   const width = Math.max(container.node().clientWidth, 320);
-  const height = Math.max(400, Math.min(650, width * 0.85));
+  const height = Math.max(400, Math.min(720, width * 0.95));
 
   const svg = container
     .append("svg")
     .attr("viewBox", `0 0 ${width} ${height}`)
+    .attr("width", "100%")
     .attr("role", "img")
     .attr("aria-label", "Bangladesh district boundaries");
 
-  // Let D3 calculate the projection scale and position from the full country.
   const projection = d3.geoMercator().fitExtent(
     [
-      [20, 20],
-      [width - 20, height - 20],
+      [12, 12],
+      [width - 12, height - 12],
     ],
-    mapData,
+    mapData
   );
 
   const path = d3.geoPath(projection);
 
   mapSvg = svg;
-  mapPath = path;
   mapGeoJSON = mapData;
 
   const maxCases =
     d3.max(
       mapFeatures,
-      (feature) => Number(feature.properties?.total_cases) || 0,
+      (feature) => Number(feature.properties?.total_cases) || 0
     ) || 1;
 
-  mapColorScale = d3
+  const mapColorScale = d3
     .scaleSequential()
     .domain([0, maxCases])
     .interpolator(d3.interpolateOrRd);
 
-  // Draw the district boundaries.
   svg
     .selectAll("path.district")
     .data(mapFeatures)
@@ -532,7 +812,7 @@ function renderMap(geojson) {
     .attr("class", "district")
     .attr("d", path)
     .attr("fill", (feature) =>
-      mapColorScale(Number(feature.properties?.total_cases) || 0),
+      mapColorScale(Number(feature.properties?.total_cases) || 0)
     )
     .on("mousemove", (event, feature) => {
       const props = feature.properties || {};
@@ -540,28 +820,22 @@ function renderMap(geojson) {
       showTooltip(
         event,
         `<strong>${escapeHTML(props.district_id || "Unmapped")}</strong><br>` +
-          `${escapeHTML(props.shapeName || "District")}<br>` +
-          `Synthetic cases: ${numberFormat.format(
-            Number(props.total_cases) || 0,
-          )}`,
+        `${escapeHTML(props.shapeName || "District")}<br>` +
+        `Synthetic cases: ${numberFormat.format(
+          Number(props.total_cases) || 0
+        )}`
       );
     })
     .on("mouseleave", hideTooltip)
     .on("click", (_, feature) => {
-      const id = feature.properties?.district_id;
+      const id = String(feature.properties?.district_id ?? "");
 
-      if (
-        id &&
-        [...districtFilter.options].some((option) => option.value === id)
-      ) {
+      if ([...districtFilter.options].some((option) => option.value === id)) {
         districtFilter.value = id;
         refreshFilteredViews();
       }
     });
 
-  // Label each district with its demo ID.
-
-  /* Label each district with its name instead of its demo ID. */
   svg
     .selectAll("text.district-label")
     .data(mapFeatures)
@@ -582,15 +856,18 @@ function renderMap(geojson) {
       (feature) =>
         feature.properties?.shapeName ||
         districtNames[feature.properties?.district_id] ||
-        "",
-    )
-    .style("pointer-events", "none");
+        ""
+    );
 
   updateMapSelection();
 
-  document.getElementById("mapMessage").textContent =
-    `${mapFeatures.length} district shapes loaded. ` +
-    "IDs and case counts use a synthetic demo mapping.";
+  const mapMessage = document.getElementById("mapMessage");
+
+  if (mapMessage) {
+    mapMessage.textContent =
+      `${mapFeatures.length} district shapes loaded. ` +
+      "Case totals are synthetic demo values.";
+  }
 }
 
 function updateMapSelection() {
@@ -599,8 +876,7 @@ function updateMapSelection() {
   const selectedDistrict = districtFilter.value;
 
   mapSvg.selectAll(".district").classed("selected", (feature) => {
-    const id = feature.properties?.district_id;
-
+    const id = String(feature.properties?.district_id ?? "");
     return selectedDistrict !== "ALL" && id === selectedDistrict;
   });
 }
@@ -610,11 +886,15 @@ async function loadMap() {
   renderMap(geojson);
 }
 
-/* ALERT TABLE */
+/* =========================================================
+   ALERT TABLE
+   ========================================================= */
 
 async function loadAlerts() {
   const rows = await getJSON("/alerts?limit=100");
   const body = document.getElementById("alertsTable");
+
+  if (!body) return;
 
   body.replaceChildren();
 
@@ -650,11 +930,15 @@ async function loadAlerts() {
   });
 }
 
-/* RESOURCE TABLE */
+/* =========================================================
+   RESOURCE TABLE
+   ========================================================= */
 
 async function loadResources() {
   const rows = await getJSON("/resources");
   const body = document.getElementById("resourcesTable");
+
+  if (!body) return;
 
   body.replaceChildren();
 
@@ -672,7 +956,7 @@ async function loadResources() {
   }
 
   rows.sort(
-    (a, b) => (Number(b.beds_needed) || 0) - (Number(a.beds_needed) || 0),
+    (a, b) => (Number(b.beds_needed) || 0) - (Number(a.beds_needed) || 0)
   );
 
   rows.slice(0, 30).forEach((row) => {
@@ -695,11 +979,15 @@ async function loadResources() {
   });
 }
 
-/* EVALUATION METRICS */
+/* =========================================================
+   EVALUATION METRICS
+   ========================================================= */
 
 async function loadEvaluation() {
   const data = await getJSON("/evaluation");
   const container = document.getElementById("evaluationSummary");
+
+  if (!container) return;
 
   container.replaceChildren();
 
@@ -710,7 +998,10 @@ async function loadEvaluation() {
         [
           "Recall",
           data.event_count
-            ? `${((data.detected_count / data.event_count) * 100).toFixed(1)}%`
+            ? `${(
+                (data.detected_count / data.event_count) *
+                100
+              ).toFixed(1)}%`
             : "N/A",
         ],
       ]
@@ -731,27 +1022,46 @@ async function loadEvaluation() {
   });
 }
 
-/* FILTER REFRESH */
+/* =========================================================
+   FILTER REFRESH
+   Defined ONCE so all three charts refresh correctly.
+   ========================================================= */
 
 async function refreshFilteredViews() {
+  const currentVersion = ++refreshVersion;
+
   updateMapSelection();
 
-  const results = await Promise.allSettled([
-    loadTrend(),
-    loadDistrictDiseaseCounts(),
-  ]);
+  const tasks = [
+    ["trendChart", loadTrend],
+    ["diseaseChart", loadDiseaseChartByDistrict],
+    ["districtDiseaseTable", loadDistrictDiseaseCounts],
+    ["mapTrendChart", loadMultiDiseaseTrend],
+  ];
 
-  if (results[0].status === "rejected") {
-    showError("trendChart", results[0].reason.message);
-  }
+  const results = await Promise.allSettled(
+    tasks.map(([, task]) => task())
+  );
 
-  if (results[1].status === "rejected") {
-    showError("districtDiseaseChart", results[1].reason.message);
-    showError("districtDiseaseTable", results[1].reason.message);
-  }
+  // Ignore older refresh results if the user changed filters again.
+  if (currentVersion !== refreshVersion) return;
+
+  results.forEach((result, index) => {
+    if (result.status === "rejected") {
+      const [containerId] = tasks[index];
+      console.error(`Failed to refresh ${containerId}:`, result.reason);
+
+      showError(
+        containerId,
+        `Could not load data: ${result.reason?.message || "Unknown error"}`
+      );
+    }
+  });
 }
 
-/* INITIALIZE DASHBOARD */
+/* =========================================================
+   INITIALIZATION
+   ========================================================= */
 
 async function init() {
   try {
@@ -766,7 +1076,9 @@ async function init() {
     const tasks = [
       ["summary", loadSummary],
       ["trendChart", loadTrend],
-      ["districtDiseaseChart", loadDistrictDiseaseCounts],
+      ["diseaseChart", loadDiseaseChartByDistrict],
+      ["districtDiseaseTable", loadDistrictDiseaseCounts],
+      ["mapTrendChart", loadMultiDiseaseTrend],
       ["districtMap", loadMap],
       ["alertsTable", loadAlerts],
       ["resourcesTable", loadResources],
@@ -781,38 +1093,51 @@ async function init() {
           console.error(`Failed to load ${containerId}:`, error);
           showError(containerId, error.message);
         }
-      }),
+      })
     );
   } catch (error) {
     console.error("Dashboard initialization failed:", error);
-
     showError("trendChart", `Could not start the dashboard: ${error.message}`);
   }
 }
 
-/* EVENT LISTENERS */
+/* =========================================================
+   EVENT LISTENERS
+   ========================================================= */
 
 districtFilter.addEventListener("change", refreshFilteredViews);
 diseaseFilter.addEventListener("change", refreshFilteredViews);
 
-document.getElementById("resetFilters").addEventListener("click", () => {
+document.getElementById("resetFilters")?.addEventListener("click", () => {
   districtFilter.value = "ALL";
   diseaseFilter.value = "ALL";
-
   refreshFilteredViews();
 });
 
-document.getElementById("clearMapSelection").addEventListener("click", () => {
+document.getElementById("clearMapSelection")?.addEventListener("click", () => {
   districtFilter.value = "ALL";
   refreshFilteredViews();
 });
 
-window.addEventListener("resize", () => {
-  if (mapGeoJSON) {
-    renderMap(mapGeoJSON);
-  }
+let resizeTimer;
 
-  refreshFilteredViews();
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+
+  resizeTimer = setTimeout(async () => {
+    if (mapGeoJSON) {
+      renderMap(mapGeoJSON);
+    }
+
+    await Promise.allSettled([
+      loadTrend(),
+      loadMultiDiseaseTrend(),
+    ]);
+  }, 180);
 });
+
+/* =========================================================
+   START DASHBOARD
+   ========================================================= */
 
 init();
